@@ -4,6 +4,44 @@ from datetime import datetime
 import sqlite3
 
 # lets create the form class first so we can get some data
+
+class Database:
+    try:
+        def ConnectToDatabase():
+            db = sqlite3.connect('todo.db')
+            c = db.cursor()
+            c.execute(
+                'CREATE TABLE IF not exists tasks (id INTEGER PRIMARY KEY, Task VARCHAR(255) NOT NULL, Date VARCHAR(255) NOT NULL)'
+                  )
+            return  db
+    except Exception as e:
+        print(e)
+
+    def ReadDatabase(db):
+        c = db.cursor()
+        # make sure name the columns and not Slect * From
+        c.execute("SELECT Task, Date FROM tasks")
+        records = c.fetchall()
+        return records
+
+    def InsertDatabase(db, values):
+        # also make sute the use ¹ for the inputs for security purposes
+        c = db.cursor()
+        c.execute("INSERT INTO tasks (Task, Date) VALUES (?,?)", values)
+        db.commit()
+
+    def DeleteDatabe(db, values):
+        c = db.cursor()
+        # quick note: were assuming that no two tasks description are the same and as a result we are deleting based on task
+        #an ideal app would not do this but instead delete based on the actual immutable database ID. bit dor the sake od the tutorial and lenhght we will do it this way
+
+        c.execute("DELETE FROM tasks WHERE Task=?",values)
+
+    def UpdateDatabase(db, values):
+        c = db.cursor()
+        c.execute("UPDATE tasks SET Task=? WHERE Task=?", value)
+        db.commit()
+
 class FormContainer(UserControl):
     # at this point, we can pass in a function from the main() so we can expand minimize the form
     # go back to the formContainer() and a argument as such
@@ -134,11 +172,24 @@ def main(page: Page):
     page.horizontal_alignment = 'center'
     page.vertical_alignment = 'center'
 
-    def AddTaskToScreen():
+    def AddTaskToScreen(e):
         # now , everytime the user adds a task we need to fecth the data nad output ir the main colum
         # there are 2 data we need: the task + the date
         #
         dateTime = datetime.now().strftime("%b %d, %Y %I:%M")
+
+
+        # db aqui iniciar
+        db = Database.ConnectToDatabase() # retornar db
+        Database.InsertDatabase(db,(form.content.controls[0].value, dateTime))
+        # we habe both values one the date and time and ther other user task
+        # fechar a conexao
+        db.close()
+
+        # we could also place the db functions within the if startment
+
+
+
 
         # now recall that we set the form contianer to form variable we can use
         # this now to see if theres aby content in the textfield
@@ -159,7 +210,9 @@ def main(page: Page):
 
             # we can recall the sow hide function for the form here
             CreateToDoTask(e)
-        pass
+        else:
+            db.close() # ter certexa sute ir cleses even if there is no user input
+            pass
 
     def DeleteFunction(e):
         # when we want to delete, recall that these instance are in a list so that means we can simply remove them whwn we want to
@@ -268,7 +321,7 @@ def main(page: Page):
                                 _main_column_,
                                 # Form class here
                                 # pass in the argumetn for the form class here
-                                FormContainer(lambda e: AddTaskToScreen()),
+                                FormContainer(lambda e: AddTaskToScreen(e)),
 
                             ]
                         )
@@ -283,6 +336,27 @@ def main(page: Page):
     # form container index is ass follows, we can set the long element index as a variable so it  can be called faste and ease
     form = page.controls[0].content.controls[0].content.controls[1].controls[0]
     # now we can call form whener we want to do somenthing with it .
+
+    # now to display it we need to read the database
+    #another note flet keeps on refresing whe we call the database function
+    #this could be form my code or from flet itself but it should be addresser
+
+    db = Database.ConnectToDatabase()
+    # now remeber that the readdatabase() function return the records
+
+    for task in Database.ReadDatabase(db)[::-1]:
+        # lets see if the tasks are being saved
+        #lets add these to the screen now
+        _main_column_.controls.append(
+            # same process as before we create an instance of this class
+            CreateTask(
+                task=[0], # first item of the returnend tuple
+                task=[1],
+                DeleteFunction,
+                UpdateFunction,
+            )
+        )
+    _main_column_.update()
 
 if __name__ == '__main__':
    flet.app(target=main)
